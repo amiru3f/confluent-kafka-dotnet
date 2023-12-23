@@ -169,11 +169,11 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                 ClientId = clientId
             };
 
-            using (var adminClent = new AdminClientBuilder(config).Build())
+            using (var adminClient = new AdminClientBuilder(config).Build())
             {
                 try
                 {
-                    await adminClent.DeleteTopicsAsync(new List<string> { Topic_InputLines, Topic_Words, Topic_Counts });
+                    await adminClient.DeleteTopicsAsync(new List<string> { Topic_InputLines, Topic_Words, Topic_Counts });
                 }
                 catch (DeleteTopicsException e)
                 {
@@ -197,7 +197,7 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                 ClientId = clientId
             };
 
-            using (var adminClent = new AdminClientBuilder(config).Build())
+            using (var adminClient = new AdminClientBuilder(config).Build())
             {
                 var countsTopicSpec = new TopicSpecification
                 {
@@ -225,7 +225,7 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
 
                 try
                 {
-                    await adminClent.CreateTopicsAsync(new List<TopicSpecification> { countsTopicSpec, wordsTopicSpec, inputLinesTopicSpec });
+                    await adminClient.CreateTopicsAsync(new List<TopicSpecification> { countsTopicSpec, wordsTopicSpec, inputLinesTopicSpec });
                 }
                 catch (CreateTopicsException ex)
                 {
@@ -314,8 +314,8 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                 // you must turn off auto commit on the consumer, which is
                 // enabled by default!
                 EnableAutoCommit = false,
-                // Enable incremental rebalancing by using the CooperativeSticky
-                // assignor (avoid stop-the-world rebalances).
+                // Enable incremental re-balancing by using the CooperativeSticky
+                // assignor (avoid stop-the-world re-balances).
                 PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky
             };
 
@@ -528,7 +528,7 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
         ///     A transactional (exactly once) processing loop that reads individual words and updates 
         ///     the corresponding total count state.
         ///
-        ///     When a rebalance occurs (including on startup), the count state for the incrementally
+        ///     When a re-balance occurs (including on startup), the count state for the incrementally
         ///     assigned partitions is reloaded before the loop commences to update it. For this use-
         ///     case, the CooperativeSticky assignor is much more efficient than the Range or RoundRobin
         ///     assignors since it keeps to a minimum the count state that needs to be materialized.
@@ -559,12 +559,12 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                 GroupId = ConsumerGroup_Aggregate,
                 AutoOffsetReset = AutoOffsetReset.Earliest,
                 // This should be greater than the maximum amount of time required to read in
-                // existing count state. It should not be too large, since a rebalance may be
+                // existing count state. It should not be too large, since a re-balance may be
                 // blocked for this long.
                 MaxPollIntervalMs = 600000, // 10 minutes.
                 EnableAutoCommit = false,
-                // Enable incremental rebalancing by using the CooperativeSticky
-                // assignor (avoid stop-the-world rebalances). This is particularly important,
+                // Enable incremental re-balancing by using the CooperativeSticky
+                // assignor (avoid stop-the-world re-balances). This is particularly important,
                 // in the AggregateWords case, since the entire count state for newly assigned
                 // partitions is loaded in the partitions assigned handler.
                 PartitionAssignmentStrategy = PartitionAssignmentStrategy.CooperativeSticky,
@@ -633,7 +633,7 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                         }
 
                         // Materialize count state for partitions into the FASTER KV stores.
-                        // Note: the partiioning of Topic_Counts matches Topic_Words.
+                        // Note: the partitioning of Topic_Counts matches Topic_Words.
                         LoadCountState(brokerList, partitions.Select(tp => tp.Partition), ct);
                     }
                 })
@@ -719,7 +719,7 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                     }
                 }
 
-                if (maxWords.Count > 0) { Console.WriteLine("Most frequently occuring words known to this instance:"); }
+                if (maxWords.Count > 0) { Console.WriteLine("Most frequently occurring words known to this instance:"); }
                 foreach (var wc in maxWords)
                 {
                     Console.WriteLine(" " + wc.Item2 + " " + wc.Item1);
@@ -735,7 +735,7 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                 Console.WriteLine("   del:     delete all Kafka topics created by this application (client-id optional)");
                 Console.WriteLine("   gen:     generate line data (client-id optional)");
                 Console.WriteLine("   map:     split the input lines into words (client-id required)");
-                Console.WriteLine("   reduce:  count the number of occurances of each word (client-id required)");
+                Console.WriteLine("   reduce:  count the number of occurrences of each word (client-id required)");
             };
 
             if (args.Length != 2 && args.Length != 3)
@@ -776,9 +776,12 @@ namespace Confluent.Kafka.Examples.ExactlyOnce
                     return;
 
                 case "reduce":
-                    var processors = new List<Task>();
-                    processors.Add(Task.Run(() => Processor_AggregateWords(brokerList, clientId, cts.Token)));
-                    processors.Add(Task.Run(async () => await PeriodicallyDisplayTopCountsState(brokerList, cts.Token)));
+                    var processors = new List<Task>
+                    {
+                        //point
+                        Task.Run(() => Processor_AggregateWords(brokerList, clientId, cts.Token)),
+                        Task.Run(async () => await PeriodicallyDisplayTopCountsState(brokerList, cts.Token))
+                    };
 
                     var allTasks = await Task.WhenAny(processors.ToArray());
                     if (allTasks.IsFaulted)
